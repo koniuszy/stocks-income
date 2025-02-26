@@ -7,12 +7,13 @@
   "license": "MIT",
   "packageManager": "yarn@4.6.0",
   "scripts": {
-    "start": "npx tsx src/index.ts"
+    "start": "yarn tsx src/index.ts"
   },
   "dependencies": {
     "csv-parser": "^3.1.0"
   },
   "devDependencies": {
-    "@types/node": "^22.10.5"
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.3"
   }
 }

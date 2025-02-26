@@ -16,7 +16,7 @@ type Transaction = {
 const loadCsv = async (): Promise<Transaction[]> => {
   const results: Transaction[] = [];
   return new Promise((resolve, reject) => {
-    createReadStream(path.resolve(__dirname, "./data/degiro.csv"))
+    createReadStream(path.resolve(__dirname, "./data/transactions.csv"))
       .pipe(
         csvParser({
           separator: ",",
@@ -62,7 +62,15 @@ const prefetchedRates = {
   "2024-12-20": 4.2572,
   "2025-01-02": 4.2668,
   "2025-01-03": 4.2718,
+  "2024-12-16": 4.2622,
+  "2025-01-31": 4.213,
+  "2025-02-07": 4.1898,
+  "2025-01-14": 4.2737,
+  "2025-01-30": 4.2039,
+  "2025-02-10": 4.1872,
+  "2025-02-03": 4.2305,
 };
+
 const exchangeRates = new Map<string, number>(Object.entries(prefetchedRates));
 const assets = new Map<string, number>();
 
