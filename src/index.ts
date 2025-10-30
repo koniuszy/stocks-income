@@ -25,14 +25,33 @@ const loadCsv = async (): Promise<Transaction[]> => {
       )
       .on("data", (r) => {
         const [day, month, year] = r.Date.split("-");
+        const value = Number(r.Value.replace(",", "."));
+        const fee = Number(r["Transaction and/or third"].replace(",", "."));
+        const productName = r.Product;
+        const quantity = Number(r.Quantity.replace(",", "."));
+        const price = Math.abs(value / quantity);
+
+        if (Number.isNaN(value))
+          throw Error(`Value is NaN for row ${JSON.stringify(r, null, 2)}`);
+        if (Number.isNaN(fee))
+          throw Error(`Fee is NaN for row ${JSON.stringify(r, null, 2)}`);
+        if (!productName)
+          throw Error(
+            `Product name is missing for row ${JSON.stringify(r, null, 2)}`
+          );
+        if (Number.isNaN(quantity))
+          throw Error(`Quantity is NaN for row ${JSON.stringify(r, null, 2)}`);
+        if (Number.isNaN(price))
+          throw Error(`Price is NaN for row ${JSON.stringify(r, null, 2)}`);
+
         results.push({
           date: new Date(`${year}-${month}-${day} ${r.Time}`),
-          productName: r.Product,
-          value: Number(r.Value),
-          fee: Number(r["Transaction and/or third"]),
-          quantity: Number(r.Quantity),
+          productName,
+          value,
+          fee,
+          quantity,
           year: Number(year),
-          price: Math.abs(Number(r.Value) / Number(r.Quantity)),
+          price,
         });
       })
       .on("error", (error) => reject(error))
@@ -69,6 +88,26 @@ const prefetchedRates = {
   "2025-01-30": 4.2039,
   "2025-02-10": 4.1872,
   "2025-02-03": 4.2305,
+  "2025-06-12": 4.2631,
+  "2024-12-19": 4.2633,
+  "2025-05-27": 4.2479,
+  "2025-06-16": 4.2612,
+  "2025-05-02": 4.275,
+  "2025-02-04": 4.2249,
+  "2025-02-25": 4.1339,
+  "2025-05-08": 4.2714,
+  "2025-05-12": 4.2337,
+  "2025-02-28": 4.1575,
+  "2025-06-25": 4.2479,
+  "2025-03-03": 4.1827,
+  "2025-03-05": 4.1545,
+  "2025-06-18": 4.2717,
+  "2025-05-14": 4.2455,
+  "2025-05-30": 4.2507,
+  "2025-07-02": 4.25,
+  "2025-07-29": 4.2737,
+  "2025-07-24": 4.2514,
+  "2025-06-20": 4.2709,
 };
 
 const exchangeRates = new Map<string, number>(Object.entries(prefetchedRates));
