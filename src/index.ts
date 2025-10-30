@@ -24,11 +24,13 @@ const loadCsv = async (): Promise<Transaction[]> => {
         })
       )
       .on("data", (r) => {
+        const toNumber = (v: string) => Number(v.replace(",", "."));
+
         const [day, month, year] = r.Date.split("-");
-        const value = Number(r.Value.replace(",", "."));
-        const fee = Number(r["Transaction and/or third"].replace(",", "."));
+        const value = toNumber(r.Value);
+        const fee = toNumber(r["Transaction and/or third"]);
         const productName = r.Product;
-        const quantity = Number(r.Quantity.replace(",", "."));
+        const quantity = toNumber(r.Quantity);
         const price = Math.abs(value / quantity);
 
         if (Number.isNaN(value))
@@ -55,7 +57,18 @@ const loadCsv = async (): Promise<Transaction[]> => {
         });
       })
       .on("error", (error) => reject(error))
-      .on("end", () => resolve(results));
+      .on("end", () => {
+        const invalidHyundai = results.find(
+          (r) => r.productName === "GDR ON HYUNDAI MOTOR" && r.quantity === -400
+        );
+        if (invalidHyundai) {
+          invalidHyundai.price = 48.08;
+          invalidHyundai.value =
+            Math.abs(invalidHyundai.quantity) * invalidHyundai.price;
+        }
+
+        resolve(results);
+      });
   });
 };
 
@@ -81,6 +94,9 @@ const prefetchedRates = {
   "2024-12-20": 4.2572,
   "2025-01-02": 4.2668,
   "2025-01-03": 4.2718,
+  "2025-01-04": 4.2718,
+  "2025-01-05": 4.2718,
+  "2025-01-06": 4.2718,
   "2024-12-16": 4.2622,
   "2025-01-31": 4.213,
   "2025-02-07": 4.1898,
@@ -108,6 +124,9 @@ const prefetchedRates = {
   "2025-07-29": 4.2737,
   "2025-07-24": 4.2514,
   "2025-06-20": 4.2709,
+  "2025-03-07": 4.176,
+  "2025-04-04": 4.2403,
+  "2025-04-08": 4.2946,
 };
 
 const exchangeRates = new Map<string, number>(Object.entries(prefetchedRates));
@@ -118,7 +137,7 @@ const run = async () => {
     d.sort((a, b) => a.date.getTime() - b.date.getTime())
   );
 
-  const unhandledSellTransactions = transactions.filter((t) => t.quantity < 0);
+  const sellTransactions = transactions.filter((t) => t.quantity < 0);
   const buyTransactions = transactions.filter((t) => t.quantity > 0);
 
   const closedTxs: {
@@ -131,18 +150,14 @@ const run = async () => {
   }[] = [];
 
   for (const buyTx of buyTransactions) {
-    const sellTxs = unhandledSellTransactions.filter(
-      (t) => t.productName === buyTx.productName && t.quantity < 0
+    const sellTxs = sellTransactions.filter(
+      (t) => t.productName === buyTx.productName
     );
 
-    if (!sellTxs.length) {
-      const existing = assets.get(buyTx.productName);
-      assets.set(
-        buyTx.productName,
-        existing ? existing + buyTx.quantity : buyTx.quantity
-      );
-      continue;
-    }
+    const existing = assets.get(buyTx.productName) || 0;
+    assets.set(buyTx.productName, existing + buyTx.quantity);
+
+    if (!sellTxs.length) continue;
 
     if (sellTxs.reduce((acc, item) => acc + item.quantity, 0) > buyTx.quantity)
       throw Error(
@@ -160,7 +175,11 @@ const run = async () => {
     }
 
     const buyDateExchangeRate = exchangeRates.get(buyTxDateKey);
+
     for (const sellTx of sellTxs) {
+      const quantity = Math.min(Math.abs(sellTx.quantity), buyTx.quantity);
+      if (quantity === 0) continue;
+
       const sellTxDateKey = sellTx.date.toISOString().split("T")[0];
       if (!exchangeRates.has(sellTxDateKey)) {
         exchangeRates.set(
@@ -169,8 +188,6 @@ const run = async () => {
         );
       }
       const sellDateExchangeRate = exchangeRates.get(sellTxDateKey);
-
-      const quantity = Math.min(Math.abs(sellTx.quantity), buyTx.quantity);
 
       if (!buyDateExchangeRate || !sellDateExchangeRate)
         throw Error("No exchange rate");
@@ -191,18 +208,30 @@ const run = async () => {
           ) / 100,
       });
 
+      const existing = assets.get(buyTx.productName);
+      if (!existing) throw Error(`No existing asset: ${buyTx.productName}`);
+      const newValue = existing - quantity;
+      assets.set(buyTx.productName, newValue);
+      if (newValue === 0) {
+        assets.delete(buyTx.productName);
+      }
+
       sellTx.fee = 0;
       fee = 0;
       sellTx.quantity += quantity;
       buyTx.quantity -= quantity;
 
-      if (buyTx.quantity === 0) break;
+      if (buyTx.quantity < 0) {
+        console.error("Negative buy quantity", buyTx);
+        throw Error(`Buy transaction quantity below 0`);
+      }
     }
   }
 
   const yearsToPay = new Set(closedTxs.map((t) => t.yearToPayTax));
   for (const year of yearsToPay) {
     const yearTxs = closedTxs.filter((t) => t.yearToPayTax === year);
+
     const totalProfitEur =
       Math.round(yearTxs.reduce((acc, t) => acc + t.profit, 0) * 100) / 100;
     const totalFeeEur =
@@ -212,13 +241,21 @@ const run = async () => {
     const totalFeePLN =
       Math.round(yearTxs.reduce((acc, t) => acc + t.feePLN, 0) * 100) / 100;
 
+    const summaryToPrint = yearTxs.reduce((acc, item) => {
+      acc[item.name] = (acc[item.name] || 0) + item.profit;
+      return acc;
+    }, {} as Record<string, number>);
+
     console.log(
       `Year ${year}: 
       EUR: Profit ${totalProfitEur}
       EUR: Fees ${totalFeeEur} 
       PLN: Profit ${totalProfitPLN} 
       PLN: Fees ${totalFeePLN}
-      PLN: Tax ${Math.round((totalProfitPLN - totalFeePLN) * 0.19 * 100) / 100}`
+      PLN: Tax ${
+        Math.round((totalProfitPLN - totalFeePLN) * 0.19 * 100) / 100
+      }`,
+      summaryToPrint
     );
   }
 
