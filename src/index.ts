@@ -253,7 +253,7 @@ const run = async () => {
       PLN: Profit ${totalProfitPLN} 
       PLN: Fees ${totalFeePLN}
       PLN: Tax ${
-        Math.round((totalProfitPLN - totalFeePLN) * 0.19 * 100) / 100
+        Math.round((totalProfitPLN + totalFeePLN) * 0.19 * 100) / 100
       }`,
       summaryToPrint
     );
