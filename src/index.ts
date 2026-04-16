@@ -27,8 +27,8 @@ const loadCsv = async (): Promise<Transaction[]> => {
         const toNumber = (v: string) => Number(v.replace(",", "."));
 
         const [day, month, year] = r.Date.split("-");
-        const value = toNumber(r.Value);
-        const fee = toNumber(r["Transaction and/or third"]);
+        const value = toNumber(r["Value EUR"]);
+        const fee = toNumber(r["Transaction and/or third party fees EUR"]);
         const productName = r.Product;
         const quantity = toNumber(r.Quantity);
         const price = Math.abs(value / quantity);
@@ -127,6 +127,32 @@ const prefetchedRates = {
   "2025-03-07": 4.176,
   "2025-04-04": 4.2403,
   "2025-04-08": 4.2946,
+  "2025-06-02": 4.2578,
+  "2025-06-05": 4.2791,
+  "2025-06-26": 4.2479,
+  "2025-08-01": 4.2813,
+  "2025-08-04": 4.2734,
+  "2025-10-10": 4.2583,
+  "2025-10-29": 4.2374,
+  "2025-11-07": 4.2483,
+  "2025-11-26": 4.233,
+  "2025-12-11": 4.2284,
+  "2026-01-02": 4.2156,
+  "2026-01-08": 4.2119,
+  "2026-01-15": 4.2068,
+  "2026-01-19": 4.2231,
+  "2026-01-21": 4.2271,
+  "2026-01-26": 4.2118,
+  "2026-01-27": 4.2032,
+  "2026-02-02": 4.2106,
+  "2026-02-03": 4.2198,
+  "2026-02-04": 4.2241,
+  "2026-02-05": 4.2175,
+  "2026-02-06": 4.2155,
+  "2026-03-03": 4.2732,
+  "2026-03-12": 4.2629,
+  "2026-03-19": 4.2782,
+  "2026-03-26": 4.271,
 };
 
 const exchangeRates = new Map<string, number>(Object.entries(prefetchedRates));
@@ -203,7 +229,7 @@ const run = async () => {
         profitPLN:
           Math.round(
             (sellTx.price * quantity * sellDateExchangeRate -
-              buyTx.price * quantity * sellDateExchangeRate) *
+              buyTx.price * quantity * buyDateExchangeRate) *
               100
           ) / 100,
       });
